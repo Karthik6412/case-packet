@@ -46,7 +46,7 @@ Implement `checkDocumentCompleteness` (required docs, claimed job ↔ EVL pairin
 *Done when:* C1–C9 tests and K1 (deterministic form) pass.
 
 **4. Repository interface + SQLite adapter**
-Define `CaseRepository`: create/get cases; add document version (including a corrected version); record a completed run with its findings and steps in one transaction; read case history. No update/delete for completed runs. Drizzle schema, WAL mode and busy timeout. The seed command loading fixtures moves to step 6 with the UI.
+Define `CaseRepository`: create/get cases; add document version (including a corrected version); record a completed run with its findings and steps in one transaction; read case history. No update/delete for completed runs. Drizzle schema, WAL mode and busy timeout. The seed command moved to step 6 with the UI.
 *Done when:* A1–A4, A6 tests pass against a temporary SQLite file database.
 
 **5. Agent runner (no LLM yet)**
@@ -90,4 +90,4 @@ Deterministic core first (3–5) means the riskiest correctness logic is tested 
 | Storage lock-in | A6 import-boundary check. |
 
 ## Progress
-Plan approved with corrections. Steps 1–3 done and corrected (required-document set, date tolerance, no LLM-selected actions). Step 4 (repository + SQLite adapter) done: schema and migrations in `drizzle/`, adapter in `src/repo/sqlite/`. Step 5 (agent runner) done: `runCase` in `src/agent/`, minimal golden assertion in `src/eval/` (`npm run eval`). Step 6 (UI) is next. LLM integration is not started.
+Plan approved with corrections. Steps 1–3 done and corrected (required-document set, date tolerance, no LLM-selected actions). Step 4 (repository + SQLite adapter) done: schema and migrations in `drizzle/`, adapter in `src/repo/sqlite/`. Step 5 (agent runner) done: `runCase` in `src/agent/`, minimal golden assertion in `src/eval/` (`npm run eval`). Step 6 (minimal UI) done: case queue and case page in `src/app/`, framework-free logic in `src/service/`, `npm run seed`. Milestone A is complete. Milestone B (LLM extraction, clarification drafting, full eval, judge) is not started.

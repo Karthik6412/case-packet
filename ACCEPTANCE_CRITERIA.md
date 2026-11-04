@@ -60,13 +60,16 @@ Each criterion is testable. `[MVP]` must pass for the demo. `[DEFER]` is out of 
 
 ## G. UI behaviors
 
-- **G1 [MVP]** Case list shows each case's ID, name, and latest status.
-- **G2 [MVP]** Case detail shows: status badge, findings list, evidence per finding, run history, and the step trace of the selected run.
-- **G3 [MVP]** "Run" starts a run and displays the result without a manual refresh.
-- **G4 [MVP]** "Request clarification" shows the stored draft for the latest run (if any) and records that the paralegal reviewed it. Nothing is sent externally.
-- **G5 [MVP]** "Replace document" offers the fixture's replacement version, creates version N+1, and prompts to revalidate. Revalidating creates a new run (A2, A5).
-- **G6 [MVP]** No UI control or API route approves a case. The UI states that attorney approval is a separate step.
-- **G7 [MVP]** Failed runs display the failure reason, and the case keeps its previous status.
+- **G1 [MVP]** The case queue shows counts at the top (Blocked, Needs attention, Ready for review) and rows sorted Blocked, then Needs attention, then Ready for review (cases not yet checked last). Each row shows client name, a small case ID, case type, status, and main issue, and opens the case page.
+- **G2 [MVP]** The case page has three levels. (1) Decision summary: client, case ID, status, main issue, recommended next step, actions. (2) Evidence: each finding with a plain-language explanation, the conflicting values side by side with their source documents, and a recommended action. (3) Audit trail: run history and per-step details, collapsed by default. A one-line-per-run history stays visible in the summary.
+- **G3 [MVP]** "Re-run validation" calls `runCase`, creates a new run, and shows the new status without a manual refresh. "Run validation" is offered when a case has never been checked.
+- **G4 [MVP]** "Request clarification" previews a templated message to the client that names the conflicting documents and dates (or the missing document). Sending is labeled "(planned)" and is disabled; nothing is sent.
+- **G5 [MVP]** "Replace document" stores the fixture's corrected document as version N+1 (the original is kept), does not create a run, and the page then recommends re-running validation. Replacing twice adds nothing. Corrected content never comes from the client.
+- **G6 [MVP]** No UI control or server action approves a case. The UI states that attorney approval happens outside the tool.
+- **G7 [MVP]** A run that did not finish is shown as "Did not finish", with its reason inside the audit trail, and the case keeps its previous status.
+- **G8 [MVP]** Information and actions are visually distinct: findings are cards; actions are buttons, with the single recommended action emphasized. Status is shown as text plus a shape, never colour alone.
+- **G9 [MVP]** Outside the collapsed audit trail, the screens use plain language only. Internal terms (trace, span, workflow, finding type codes, JSON field names) never appear. Raw step input, output and errors appear only inside "Technical details" in the audit trail. A test scans the text produced for every case state.
+- **G10 [MVP]** After the demo flow (Run 1 Blocked, Replace document, Re-run validation), Run 2 is Ready for review and Run 1's stored rows are byte-identical to before.
 
 ## H. Evaluation harness
 
