@@ -4,7 +4,9 @@ Smallest sequence to a working end-to-end demo. Each step ends in something runn
 
 **Status semantics:** `BLOCKED` = known defect, cannot reach attorney sign-off until resolved. `NEEDS_ATTENTION` = uncertainty, a human must confirm or resolve first. `READY_FOR_REVIEW` = no open findings, eligible for attorney review. Material employment-date conflict, name/DOB mismatch and missing required document → `BLOCKED`; low-confidence extraction and ambiguous match → `NEEDS_ATTENTION`.
 
-**Cross-cutting rules:** (1) Required-document completeness is deterministic code, never an LLM. (2) Trace steps carry `kind`: fixed pipeline events are `workflow`; only LLM-selected invocations are `agent`. (3) One runner (`runCase`) serves the app and the eval; no duplicate implementation.
+**Required documents (EB-2):** resume, passport, sponsor offer letter, and one employment verification letter per claimed job. Payroll is optional supporting evidence. **Date tolerance:** 0 days no finding; 1–7 days INFO finding with both values and provenance (status unchanged); over 7 days BLOCKING. Thresholds are prototype heuristics.
+
+**Cross-cutting rules:** (1) Required-document completeness is deterministic code (`check_document_completeness`), never an LLM. (2) Trace steps carry `kind`: all pipeline steps are `workflow`, even LLM-backed ones; `agent` is reserved for actual model-selected tool calls, none in the MVP. (3) One runner (`runCase`) serves the app and the eval; no duplicate implementation.
 
 ## Dependencies (each justified)
 - `next`, `react`, `typescript`: required stack.
@@ -40,15 +42,15 @@ Write the two JSON fixtures with document text, expected status/findings/tool pa
 *Done when:* loader test passes (F1, F5).
 
 **3. Deterministic validators and status derivation**
-Implement identity, employment-date (tolerance-based materiality), employer-match, low-confidence and required-document checks, plus the status function and attorney-eligibility helper. Table-driven tests. Validators consume pre-extracted data, so no LLM is needed. A fixtures test applies `validateCase` + `deriveStatus` to both fixtures and asserts expected status and findings (the first form of K1).
+Implement `checkDocumentCompleteness` (required docs, claimed job ↔ EVL pairing) and `validateConsistency` (identity, employment-date tolerance with INFO/BLOCKING, low-confidence), composed by `validateCase`, plus the status function and attorney-eligibility helper. Table-driven tests. Validators consume pre-extracted data, so no LLM is needed. A fixtures test applies `validateCase` + `deriveStatus` to both fixtures and asserts expected status and findings (the first form of K1).
 *Done when:* C1–C9 tests and K1 (deterministic form) pass.
 
 **4. Repository interface + SQLite adapter**
-Define `CaseRepository`: create/get cases; add document version; start run, append step, complete run; save findings; list runs. No update/delete for completed runs. Drizzle schema, `drizzle-kit push` for the dev DB, and a seed command loading fixtures.
-*Done when:* A1–A4, A6 tests pass against in-memory SQLite.
+Define `CaseRepository`: create/get cases; add document version (including a corrected version); record a completed run with its findings and steps in one transaction; read case history. No update/delete for completed runs. Drizzle schema, WAL mode and busy timeout. The seed command loading fixtures moves to step 6 with the UI.
+*Done when:* A1–A4, A6 tests pass against a temporary SQLite file database.
 
 **5. Agent runner (no LLM yet)**
-Implement `runCase`: the step-recording runner (timing, cost, errors, step cap) with the fixed workflow tools `extract_document` (initially reading pre-baked extraction from the fixture), `run_validators`, `finalize_case`, recorded as `kind: "workflow"`. This is the only runner; the app and the eval both call it (D8).
+Implement `runCase`: the step-recording runner (timing, cost, errors, step cap) with the fixed workflow tools `extract_document` (initially reading pre-baked extraction from the fixture), `check_document_completeness`, `run_validators`, `finalize_case`, recorded as `kind: "workflow"`. This is the only runner; the app and the eval both call it (D8).
 Add the **minimal eval assertion** (K1): a test runs the `clean` and `date-conflict` fixtures through `runCase` and asserts status, findings, and workflow tool path.
 *Done when:* K1 passes via `runCase` and D1–D5, D8, F2, F3 pass.
 
@@ -62,9 +64,9 @@ Pages: case list, case detail (status, findings + evidence, run history, step tr
 Wrapper with `live`/`replay` modes (hash-keyed recordings), cost from token usage, and model roles (`extraction` → small model, `judgment` → stronger model). Replace the pre-baked extraction with Haiku-class calls parsed by Zod (one retry, then low-confidence finding). Record the responses for all fixtures.
 *Done when:* fixtures pass in replay offline with identical output (B1–B3, D7).
 
-**8. Missing-doc fixture and the decision point**
-Add the `missing-doc` fixture. Missing-ness is already detected deterministically by the validators. Implement `decide_missing_document` (judgment model, Zod output, the only `kind: "agent"` step) and `draft_clarification`. Optionally add bounded fuzzy employer matching (judgment model) feeding validators as an input. Store the draft on the run. Show the draft in the UI ("request clarification", G4).
-*Done when:* E1–E4 and F4 pass; status stays `BLOCKED`.
+**8. Missing-doc fixture and clarification drafting**
+Add the `missing-doc` fixture (a claimed job without its EVL). Missing-ness is already detected deterministically by `check_document_completeness`. Implement `draft_clarification` (judgment model, a `workflow` step run when completeness findings exist). Optionally add bounded fuzzy employer matching (judgment model) feeding validators as an input. Store the draft on the run. Show the draft in the UI ("request clarification", G4).
+*Done when:* E1–E3 and F4 pass; status stays `BLOCKED`.
 
 **9. Eval harness and metrics**
 Extend the Milestone A assertion into a CLI that runs all fixtures through the same `runCase` (D8) in replay mode, against a separate database, and prints the per-run and aggregate metrics (H1–H3). Expected-vs-actual comparison logic is unit tested, including empty-set recall/precision.
@@ -88,4 +90,4 @@ Deterministic core first (3–5) means the riskiest correctness logic is tested 
 | Storage lock-in | A6 import-boundary check. |
 
 ## Progress
-Plan approved with the corrections above. Steps 1–3 are in progress; the UI, SQLite adapter, and LLM integration are not started.
+Plan approved with corrections. Steps 1–3 done and corrected (required-document set, date tolerance, no LLM-selected actions). Step 4 (repository) is next. The agent runner, UI and LLM integration are not started.

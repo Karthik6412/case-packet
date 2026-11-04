@@ -14,6 +14,8 @@ import {
  */
 export const FixtureDocumentSchema = DocumentVersionSchema.extend({
   extraction: ExtractionSchema,
+  /** Resumes only: one extraction per claimed job. */
+  claimedJobs: z.array(ExtractionSchema).default([]),
 });
 export type FixtureDocument = z.infer<typeof FixtureDocumentSchema>;
 

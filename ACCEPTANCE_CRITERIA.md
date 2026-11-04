@@ -21,40 +21,40 @@ Each criterion is testable. `[MVP]` must pass for the demo. `[DEFER]` is out of 
 
 - **C1 [MVP]** Validators are pure functions: same extracted data in, same findings out, with no network or model calls. (Test: run with the LLM client stubbed to throw; validation still passes.)
 - **C2 [MVP]** Name comparison normalizes case, diacritics, and whitespace. "JOSÉ  Garcia" equals "Jose Garcia". A different surname yields `IDENTITY_MISMATCH`.
-- **C3 [MVP]** Employment start dates in two documents that differ by more than the tolerance (default 7 days, a named constant) yield one blocking `EMPLOYMENT_DATE_CONFLICT` naming both documents, both values, and the delta in days. A difference within the tolerance yields no finding.
-- **C4 [MVP]** Each required document type for the fixture's visa category, with no current version, yields one blocking `MISSING_REQUIRED_DOCUMENT`. This is decided by deterministic code only; no LLM is consulted for completeness.
-- **C5 [MVP]** Every finding includes ≥1 evidence reference (documentId, version, field, value, snippet).
-- **C6 [MVP]** Status derivation: any blocking finding → `BLOCKED`; else any attention finding → `NEEDS_ATTENTION`; else `READY_FOR_REVIEW`. Mapping by finding type: material employment-date conflict, name/DOB mismatch, and missing required document → `BLOCKED`; low-confidence extraction and ambiguous employer match → `NEEDS_ATTENTION`. Covered by a table-driven test with all combinations.
-- **C7 [MVP]** A required field that is missing or below the confidence threshold (default 0.7) yields one `EXTRACTION_LOW_CONFIDENCE`, and that field is excluded from cross-document comparison so it does not also yield a conflict.
-- **C8 [MVP]** Employer names that differ after normalization (case, punctuation, corporate suffixes) yield one `AMBIGUOUS_EMPLOYER_MATCH`.
+- **C3 [MVP]** Employment-date tolerance, for each pair of sources for the same employer (start dates, and end dates when both exist): difference 0 days → no finding; 1–7 days → one `EMPLOYMENT_DATE_DISCREPANCY` (INFO) ; more than 7 days → one blocking `EMPLOYMENT_DATE_CONFLICT`. Both finding types carry both source values and provenance (documentId, version, field, snippet) and state the delta in days. Boundaries 0, 1, 7 and 8 days are tested. INFO never changes status. A discrepancy is never silently dropped.
+- **C4 [MVP]** Required documents (EB-2): resume, passport, sponsor offer letter, and one employment verification letter per claimed job on the resume. Each absent one yields one blocking `MISSING_REQUIRED_DOCUMENT`. Payroll records are optional: their absence yields no finding. This is decided by deterministic code only; no LLM is consulted for completeness.
+- **C4a [MVP]** A claimed job with no EVL and no unmatched EVL → `MISSING_REQUIRED_DOCUMENT` (evidence cites the resume claim and the absent document type). A claimed job and an EVL that cannot be paired by normalized employer name, or an EVL whose employer is not on the resume → `AMBIGUOUS_EMPLOYER_MATCH` and not a missing-document finding.
+- **C5 [MVP]** Every finding includes ≥1 evidence reference (documentId, version, field, value, snippet; plus the job index for resume claims).
+- **C6 [MVP]** Status derivation: any blocking finding → `BLOCKED`; else any attention finding → `NEEDS_ATTENTION`; else `READY_FOR_REVIEW`; INFO is ignored. Mapping by finding type: material employment-date conflict, name/DOB mismatch, and missing required document → `BLOCKED`; low-confidence extraction and ambiguous employer match → `NEEDS_ATTENTION`; minor date discrepancy → no status change. Covered by a table-driven test with all combinations.
+- **C7 [MVP]** A required field that is missing or below the confidence threshold (default 0.7, a prototype heuristic) yields one `EXTRACTION_LOW_CONFIDENCE`, and that field is excluded from cross-document comparison so it does not also yield a conflict. An optional field with a value below the threshold also yields one.
+- **C8 [MVP]** Employer names that normalize equal (case, punctuation, corporate suffixes such as Inc/Ltd/Limited) pair a claimed job with an EVL; see C4a for the unpaired cases.
 - **C9 [MVP]** Only `READY_FOR_REVIEW` is eligible for attorney sign-off; `BLOCKED` and `NEEDS_ATTENTION` are not. (Eligibility is a pure function; no approval action exists, see D6.)
 - **C10 [MVP]** LLM use is bounded: the LLM may only resolve semantic matches (e.g., claimed job to verification letter) or draft clarifications. It cannot add or remove a finding or set a status.
 
 ## D. Agent harness and trace
 
-- **D1 [MVP]** The pipeline is a fixed workflow of tools: `extract_document` (per document), `run_validators`, `finalize_case`, plus `draft_clarification` when requested. The only LLM-selected invocation is `decide_missing_document`. There is no approval tool.
+- **D1 [MVP]** The pipeline is a fixed workflow: `extract_document` (per document) → `check_document_completeness` → `run_validators` → `finalize_case`, with `draft_clarification` added after validation when completeness findings exist (Milestone B). There is no approval tool and no LLM-selected tool.
 - **D2 [MVP]** Every executed event is persisted as a step with: `kind` (`workflow` | `agent`), name, input, output, startedAt, durationMs, costUsd (0 for non-LLM steps), and error if any. Steps have an ordered index within the run.
-- **D2a [MVP]** Fixed workflow steps are always `kind: "workflow"`. Only `decide_missing_document` is `kind: "agent"`. No workflow step is labeled as an agent decision, and the expected tool path in fixtures records kind alongside name.
+- **D2a [MVP]** All pipeline steps are `kind: "workflow"`, including LLM-backed ones (extraction, drafting). `kind: "agent"` is reserved for actual model-selected tool calls, of which the MVP has none. The expected path in fixtures records kind alongside name.
 - **D3 [MVP]** Step records are those actually executed. A run's steps are never synthesized after the fact.
 - **D4 [MVP]** The harness enforces a max step count (default 20). Exceeding it ends the run as failed with a recorded reason.
 - **D5 [MVP]** Run→steps serializes to JSON matching the documented trace shape (`run{id, caseId, startedAt, durationMs, totalCostUsd, steps[]}`). A schema test validates this.
 - **D6 [MVP]** The agent cannot set a status. Status is computed by deterministic code from findings. Attempting to record approval anywhere is impossible by interface (no such field or method).
-- **D7 [MVP]** Model use: extraction steps record the small model ID; `decide_missing_document` and `draft_clarification` record the stronger model ID.
+- **D7 [MVP]** Model use: extraction steps record the small model ID; `draft_clarification` records the stronger model ID.
 - **D8 [MVP]** One runner implementation (`runCase`) serves both the application and golden-data evaluation. The eval imports and calls it; there is no eval-only copy of the pipeline. Differences are limited to injected dependencies (repository instance, LLM mode). (Test: the eval and the API route reference the same function.)
 
-## E. Agent decision point
+## E. Document completeness and clarification
 
-- **E1 [MVP]** When deterministic validation reports ≥1 `MISSING_REQUIRED_DOCUMENT`, a `decide_missing_document` step (`kind: "agent"`) is recorded with input (missing types) and output `{choice: "request_document" | "continue_without", rationale}`, validated by Zod.
-- **E2 [MVP]** If the choice is `request_document`, a `draft_clarification` step follows and the draft is stored on the run. If `continue_without`, no draft step is recorded.
-- **E3 [MVP]** When no document is missing, no `decide_missing_document` step appears.
-- **E4 [MVP]** Regardless of the choice, the status is `BLOCKED` while the document is missing. (The decision affects the workflow only, never the status.)
+- **E1 [MVP]** `check_document_completeness` is a `workflow` step recorded on every run, between extraction and `run_validators`. Its output is the deterministic list of completeness findings (missing documents and unpaired employer matches). There is no `decide_missing_document` step and no LLM choice about whether to request a document.
+- **E2 [MVP-B]** When completeness findings exist, a `draft_clarification` workflow step (stronger model) follows validation and the draft is stored on the run. When none exist, no draft step is recorded.
+- **E3 [MVP]** The status is `BLOCKED` while a required document is missing, regardless of any draft.
 
 ## F. Fixtures and expected outcomes
 
 - **F1 [MVP]** Fixture format is JSON validated by Zod: case metadata, documents (type, text), expected status, expected findings (type + evidence fields), expected tool path.
-- **F2 [MVP]** `clean` → `READY_FOR_REVIEW`, zero findings, workflow path: extract×N → run_validators → finalize_case.
-- **F3 [MVP]** `date-conflict` → `BLOCKED`, exactly one `EMPLOYMENT_DATE_CONFLICT` with evidence from both documents, same workflow path. The fixture includes a corrected replacement document; after replacement and revalidation the new run is `READY_FOR_REVIEW` with zero findings.
-- **F4 [MVP]** `missing-doc` → `BLOCKED`, one `MISSING_REQUIRED_DOCUMENT`, path includes `decide_missing_document` (and `draft_clarification` when requesting).
+- **F2 [MVP]** `clean` → `READY_FOR_REVIEW`, zero findings. Resume claims two jobs, each with a matching EVL; passport and sponsor offer letter present. Workflow path: extract×N → check_document_completeness → run_validators → finalize_case.
+- **F3 [MVP]** `date-conflict` → `BLOCKED`, exactly one `EMPLOYMENT_DATE_CONFLICT` between the resume claim and the EVL, with evidence from both documents, same workflow path. The fixture includes a corrected replacement resume (version 2); after replacement and revalidation the new run is `READY_FOR_REVIEW` with zero findings.
+- **F4 [MVP-B]** `missing-doc` → `BLOCKED`, one `MISSING_REQUIRED_DOCUMENT` (an EVL for a claimed job), path includes `check_document_completeness` and `draft_clarification`.
 - **F5 [MVP]** All fixture data is synthetic and contains no real personal data.
 
 ## G. UI behaviors
@@ -86,7 +86,7 @@ Each criterion is testable. `[MVP]` must pass for the demo. `[DEFER]` is out of 
 
 ## K. Milestone A minimal evaluation assertion
 
-- **K1 [MVP-A]** From the first working runner onward, an automated test runs the `clean` and `date-conflict` fixtures through `runCase` and asserts, per fixture: final status equals expected, finding set (type + evidence documents) equals expected, and the ordered workflow tool path equals expected. Before the runner exists (steps 1–3), the same assertions run against the deterministic pipeline (`validateCase` + `deriveStatus`) over the fixtures' pre-extracted data.
+- **K1 [MVP-A]** From the first working runner onward, an automated test runs the `clean` and `date-conflict` fixtures through `runCase` and asserts, per fixture: final status equals expected, finding set (type + evidence documents) equals expected, and the ordered workflow tool path equals expected. Before the runner exists (steps 1–3), the same assertions run against the deterministic pipeline (`checkDocumentCompleteness` + `validateConsistency` via `validateCase`, then `deriveStatus`) over the fixtures' pre-extracted data.
 - **K2 [MVP-A]** The full metrics report (recall/precision, latency, cost, dashboard) and the LLM judge are not required in Milestone A (see H).
 
 ## J. Explicitly deferred

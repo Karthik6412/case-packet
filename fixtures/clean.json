@@ -1,6 +1,6 @@
 {
   "id": "clean",
-  "description": "Consistent packet: identity, employer and start date agree across all three documents.",
+  "description": "Consistent packet: resume claims two jobs, each with a matching verification letter; passport and sponsor offer letter agree on identity.",
   "case": {
     "caseId": "case-clean-001",
     "clientName": "Amara Okafor",
@@ -11,7 +11,7 @@
       "documentId": "clean-passport",
       "type": "PASSPORT",
       "version": 1,
-      "filename": "passport.txt",
+      "filename": "passport_bio_page.txt",
       "text": "PASSPORT (SYNTHETIC SAMPLE)\nName: OKAFOR, AMARA CHIDI\nDate of birth: 12 APR 1990\nPassport No: XK4471902\n",
       "extraction": {
         "fullName": { "value": "OKAFOR, AMARA CHIDI", "confidence": 0.98, "snippet": "Name: OKAFOR, AMARA CHIDI" },
@@ -20,11 +20,46 @@
       }
     },
     {
-      "documentId": "clean-evl",
+      "documentId": "clean-resume",
+      "type": "RESUME",
+      "version": 1,
+      "filename": "resume.txt",
+      "text": "RESUME (SYNTHETIC SAMPLE)\nAmara C. Okafor\n\nExperience\nSenior Data Engineer, Northwind Analytics Inc, 2021-09-01 to present\nData Analyst, Orion Freight Ltd, 2016-06-01 to 2021-08-31\n",
+      "extraction": {
+        "fullName": { "value": "Amara C. Okafor", "confidence": 0.97, "snippet": "Amara C. Okafor" }
+      },
+      "claimedJobs": [
+        {
+          "employerName": { "value": "Northwind Analytics Inc", "confidence": 0.95, "snippet": "Northwind Analytics Inc" },
+          "jobTitle": { "value": "Senior Data Engineer", "confidence": 0.95, "snippet": "Senior Data Engineer" },
+          "employmentStartDate": { "value": "2021-09-01", "confidence": 0.93, "snippet": "2021-09-01 to present" }
+        },
+        {
+          "employerName": { "value": "Orion Freight Ltd", "confidence": 0.95, "snippet": "Orion Freight Ltd" },
+          "jobTitle": { "value": "Data Analyst", "confidence": 0.94, "snippet": "Data Analyst" },
+          "employmentStartDate": { "value": "2016-06-01", "confidence": 0.93, "snippet": "2016-06-01 to 2021-08-31" },
+          "employmentEndDate": { "value": "2021-08-31", "confidence": 0.93, "snippet": "2016-06-01 to 2021-08-31" }
+        }
+      ]
+    },
+    {
+      "documentId": "clean-offer",
+      "type": "OFFER_LETTER",
+      "version": 1,
+      "filename": "sponsor_offer_letter.txt",
+      "text": "Cobalt Systems, Inc.\nOffer of Employment (synthetic)\n\nDear Amara Okafor,\nWe are pleased to offer you the position of Principal Data Engineer.\n",
+      "extraction": {
+        "fullName": { "value": "Amara Okafor", "confidence": 0.96, "snippet": "Dear Amara Okafor" },
+        "employerName": { "value": "Cobalt Systems, Inc.", "confidence": 0.97, "snippet": "Cobalt Systems, Inc." },
+        "jobTitle": { "value": "Principal Data Engineer", "confidence": 0.94, "snippet": "Principal Data Engineer" }
+      }
+    },
+    {
+      "documentId": "clean-evl-northwind",
       "type": "EMPLOYMENT_VERIFICATION_LETTER",
       "version": 1,
-      "filename": "employment_letter.txt",
-      "text": "Northwind Analytics, Inc.\nEmployment Verification Letter (synthetic)\n\nTo whom it may concern:\nThis letter confirms that Amara C. Okafor has been employed by Northwind Analytics, Inc. as Senior Data Engineer since September 1, 2021.\n",
+      "filename": "evl_northwind.txt",
+      "text": "Northwind Analytics, Inc.\nEmployment Verification Letter (synthetic)\n\nThis letter confirms that Amara C. Okafor has been employed by Northwind Analytics, Inc. as Senior Data Engineer since September 1, 2021.\n",
       "extraction": {
         "fullName": { "value": "Amara C. Okafor", "confidence": 0.95, "snippet": "Amara C. Okafor" },
         "employerName": { "value": "Northwind Analytics, Inc.", "confidence": 0.96, "snippet": "employed by Northwind Analytics, Inc." },
@@ -33,16 +68,17 @@
       }
     },
     {
-      "documentId": "clean-payroll",
-      "type": "PAYROLL_RECORD",
+      "documentId": "clean-evl-orion",
+      "type": "EMPLOYMENT_VERIFICATION_LETTER",
       "version": 1,
-      "filename": "payroll_record.txt",
-      "text": "PAYROLL EMPLOYEE RECORD (synthetic)\nEmployer: Northwind Analytics Inc\nEmployee: Amara Okafor\nDOB: 1990-04-12\nHire date: 2021-09-01\n",
+      "filename": "evl_orion.txt",
+      "text": "Orion Freight Limited\nEmployment Verification Letter (synthetic)\n\nThis letter confirms that Amara Okafor was employed by Orion Freight Limited as Data Analyst from June 1, 2016 through August 31, 2021.\n",
       "extraction": {
-        "fullName": { "value": "Amara Okafor", "confidence": 0.97, "snippet": "Employee: Amara Okafor" },
-        "dateOfBirth": { "value": "1990-04-12", "confidence": 0.96, "snippet": "DOB: 1990-04-12" },
-        "employerName": { "value": "Northwind Analytics Inc", "confidence": 0.97, "snippet": "Employer: Northwind Analytics Inc" },
-        "employmentStartDate": { "value": "2021-09-01", "confidence": 0.98, "snippet": "Hire date: 2021-09-01" }
+        "fullName": { "value": "Amara Okafor", "confidence": 0.95, "snippet": "Amara Okafor" },
+        "employerName": { "value": "Orion Freight Limited", "confidence": 0.96, "snippet": "employed by Orion Freight Limited" },
+        "employmentStartDate": { "value": "2016-06-01", "confidence": 0.94, "snippet": "from June 1, 2016" },
+        "employmentEndDate": { "value": "2021-08-31", "confidence": 0.94, "snippet": "through August 31, 2021" },
+        "jobTitle": { "value": "Data Analyst", "confidence": 0.93, "snippet": "as Data Analyst" }
       }
     }
   ],
@@ -53,6 +89,9 @@
       { "kind": "workflow", "name": "extract_document" },
       { "kind": "workflow", "name": "extract_document" },
       { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "check_document_completeness" },
       { "kind": "workflow", "name": "run_validators" },
       { "kind": "workflow", "name": "finalize_case" }
     ]

@@ -3,9 +3,11 @@ import { z } from "zod";
 // ---------- Vocabulary ----------
 
 export const DOCUMENT_TYPES = [
+  "RESUME",
   "PASSPORT",
-  "EMPLOYMENT_VERIFICATION_LETTER",
-  "PAYROLL_RECORD",
+  "OFFER_LETTER", // sponsor offer letter
+  "EMPLOYMENT_VERIFICATION_LETTER", // one per claimed job
+  "PAYROLL_RECORD", // optional supporting evidence
 ] as const;
 export const DocumentTypeSchema = z.enum(DOCUMENT_TYPES);
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;
@@ -19,6 +21,7 @@ export const FIELD_NAMES = [
   "passportNumber",
   "employerName",
   "employmentStartDate",
+  "employmentEndDate",
   "jobTitle",
 ] as const;
 export const FieldNameSchema = z.enum(FIELD_NAMES);
@@ -36,12 +39,14 @@ export const FindingTypeSchema = z.enum([
   "MISSING_REQUIRED_DOCUMENT",
   "IDENTITY_MISMATCH",
   "EMPLOYMENT_DATE_CONFLICT",
+  "EMPLOYMENT_DATE_DISCREPANCY",
   "EXTRACTION_LOW_CONFIDENCE",
   "AMBIGUOUS_EMPLOYER_MATCH",
 ]);
 export type FindingType = z.infer<typeof FindingTypeSchema>;
 
-export const SeveritySchema = z.enum(["BLOCKING", "ATTENTION"]);
+/** BLOCKING -> BLOCKED, ATTENTION -> NEEDS_ATTENTION, INFO -> recorded, no status effect. */
+export const SeveritySchema = z.enum(["BLOCKING", "ATTENTION", "INFO"]);
 export type Severity = z.infer<typeof SeveritySchema>;
 
 // ---------- Case and documents ----------
@@ -77,12 +82,17 @@ export const DocumentVersionSchema = z.object({
 });
 export type DocumentVersion = z.infer<typeof DocumentVersionSchema>;
 
-/** What validators consume: a document version plus its extraction. */
+/**
+ * What validators consume: a document version plus its extraction.
+ * A resume also carries claimedJobs, one extraction per job listed
+ * (employerName, jobTitle, employmentStartDate, employmentEndDate).
+ */
 export const ExtractedDocumentSchema = z.object({
   documentId: z.string().min(1),
   type: DocumentTypeSchema,
   version: z.number().int().min(1),
   extraction: ExtractionSchema,
+  claimedJobs: z.array(ExtractionSchema).default([]),
 });
 export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 
@@ -102,6 +112,8 @@ export const EvidenceSchema = z.object({
   documentType: DocumentTypeSchema,
   version: z.number().int().min(1).nullable(),
   field: FieldNameSchema.nullable(),
+  /** Which resume claim (index into claimedJobs) this evidence comes from, if any. */
+  jobIndex: z.number().int().min(0).nullable(),
   value: z.string().nullable(),
   snippet: z.string().nullable(),
 });

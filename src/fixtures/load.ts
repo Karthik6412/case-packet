@@ -39,6 +39,7 @@ export function toSnapshot(
       type: d.type,
       version: d.version,
       extraction: d.extraction,
+      claimedJobs: d.claimedJobs,
     })),
   };
 }

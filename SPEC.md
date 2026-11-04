@@ -1,10 +1,10 @@
 # SPEC — Case Packet Assembly & Validation
 
-A practice project: a paralegal prepares employment-based immigration case packets for attorney review. All data is synthetic. Documentation only at this stage; nothing is implemented.
+A practice project: a paralegal prepares employment-based immigration case packets for attorney review. All data is synthetic. Implementation status is tracked in IMPLEMENTATION_PLAN.md.
 
 ## 1. Problem and user
 
-**User:** a paralegal assembling a packet (identity docs, employer letter, pay records, etc.) before an attorney reviews it.
+**User:** a paralegal assembling a packet (resume, passport, sponsor offer letter, employment verification letters, optional payroll records) before an attorney reviews it.
 **Pain:** manual cross-checking of names, dates, and required-document lists is slow and error-prone.
 **Goal:** an agent assembles and validates the packet, reports what is wrong with evidence, and drafts the follow-up. A human attorney decides on approval, and the agent never does.
 
@@ -14,7 +14,7 @@ A practice project: a paralegal prepares employment-based immigration case packe
 2. **Run** extraction and assembly. The agent extracts fields from each document, then builds the packet.
 3. **Validate** identity consistency, employment dates, and required-document completeness. This is deterministic code.
 4. **View** case status (`BLOCKED` / `NEEDS_ATTENTION` / `READY_FOR_REVIEW`), findings, and the evidence behind each finding (document, field, extracted value, source snippet).
-5. **Act**: request clarification (agent-drafted message) or replace a document (new immutable version).
+5. **Act**: request clarification (LLM-drafted message) or replace a document (new immutable version).
 6. **Revalidate**: a new run is created on the same case. Previous runs and document versions remain intact and viewable.
 
 Attorney approval is a separate human step. The system only ever marks a case `READY_FOR_REVIEW` (eligible for attorney review). Cases that are `BLOCKED` or `NEEDS_ATTENTION` cannot reach attorney sign-off.
@@ -37,10 +37,9 @@ Attorney approval is a separate human step. The system only ever marks a case `R
 - **Deterministic vs LLM split:**
   - LLM, small model (Haiku-class): field extraction from document text into Zod-validated structures.
   - Code only: validation, status derivation, and required-document completeness. Whether a known required document is missing is never an LLM judgment.
-  - LLM, stronger model (Sonnet-class), bounded uses only: semantic reasoning where deterministic matching is insufficient (e.g., fuzzy-matching a claimed job/employer to a verification letter when normalized names differ), the single agent decision, and clarification drafting.
+  - LLM, stronger model (Sonnet-class), bounded uses only: semantic reasoning where deterministic matching is insufficient (e.g., fuzzy-matching a claimed job/employer to a verification letter when normalized names differ) and clarification drafting.
   - LLM judge (stronger model): grades clarification drafts in the eval harness only.
-- **Workflow vs agent events:** the pipeline (extract each document → validate → finalize) is a fixed workflow. Its steps are recorded with `kind: "workflow"` and are never presented as autonomous agent decisions. Only the one LLM-selected invocation below is recorded with `kind: "agent"`.
-- **Agent decision point:** when code detects a missing required document, the agent chooses `request_document` or `continue_without`. The choice is recorded as a `kind: "agent"` tool invocation with its rationale.
+- **Workflow vs agent events:** the pipeline is a fixed workflow: `extract_document` (per document) → `check_document_completeness` → `run_validators` → (`draft_clarification` when completeness findings exist, Milestone B) → `finalize_case`. Every one of these is recorded with `kind: "workflow"`, even those that call an LLM internally, and none is presented as an autonomous agent decision. `kind: "agent"` is reserved for actual model-selected tool calls. None exist in the MVP; they arrive only if a future step lets a model choose its own tools.
 - **Trace shape:** `run → steps[{ name, input, output, startedAt, durationMs, costUsd, tokens?, error? }]`, structured so it maps onto Langfuse/Phoenix traces and spans later.
 - **Agent runner:** a minimal custom runner (~100–200 lines) with typed tools and a step cap; every executed event is recorded. No agent framework. There is exactly one implementation (`runCase`), used unchanged by the application and by golden-data evaluation; evals differ only in injected dependencies (database, LLM mode).
 - **Reproducibility:** LLM calls support `live` and `replay` modes. Replay uses recorded responses keyed by hash of (model, prompt, input), so tests and evals run offline and deterministically.
@@ -50,28 +49,51 @@ Attorney approval is a separate human step. The system only ever marks a case `R
 Status semantics:
 - `BLOCKED` = known defect; cannot proceed to attorney sign-off until resolved.
 - `NEEDS_ATTENTION` = uncertainty; a human must confirm or resolve before sign-off.
-- `READY_FOR_REVIEW` = no open findings; eligible for attorney review.
+- `READY_FOR_REVIEW` = no open blocking or attention findings; eligible for attorney review. `INFO` findings may still be present: they are recorded and shown but do not change status.
 
-Findings (deterministic):
+### Required documents (EB-2, deterministic)
+- **Required:** resume; passport biographical page; sponsor offer letter; **one employment verification letter (EVL) per claimed job** listed on the resume.
+- **Optional supporting evidence:** payroll records. Absence is never a finding. When present they are compared like any other source.
+- A claimed job is matched to an EVL by normalized employer name (case, punctuation, corporate suffixes). Completeness is code, never an LLM judgment:
+  - a claimed job with no EVL, and no unmatched EVL left → `MISSING_REQUIRED_DOCUMENT`;
+  - a claimed job and an EVL that cannot be paired by name → `AMBIGUOUS_EMPLOYER_MATCH` (uncertain, not missing);
+  - an EVL whose employer is not on the resume → `AMBIGUOUS_EMPLOYER_MATCH`.
+
+### Findings (deterministic)
 
 | Finding type | Severity | Status effect | Trigger |
 |---|---|---|---|
-| `MISSING_REQUIRED_DOCUMENT` | blocking | `BLOCKED` | A required document type for the case's visa category has no current version. |
+| `MISSING_REQUIRED_DOCUMENT` | blocking | `BLOCKED` | A required document (above) is absent. |
 | `IDENTITY_MISMATCH` | blocking | `BLOCKED` | Name or date of birth differs across documents beyond normalization (case, diacritics, name order, middle name/initial). |
-| `EMPLOYMENT_DATE_CONFLICT` | blocking | `BLOCKED` | Employment start dates in two documents differ by more than the tolerance (default 7 days). Smaller differences are not material and produce no finding. |
-| `EXTRACTION_LOW_CONFIDENCE` | attention | `NEEDS_ATTENTION` | A required field is missing or below the confidence threshold (default 0.7). |
-| `AMBIGUOUS_EMPLOYER_MATCH` | attention | `NEEDS_ATTENTION` | Employer names differ after normalization and no resolution is available. A later step may let the stronger model propose a match; a proposed match is an input to validation, never a status decision. |
+| `EMPLOYMENT_DATE_CONFLICT` | blocking | `BLOCKED` | Start (or end) dates for the same employer differ by more than 7 days across sources. |
+| `EMPLOYMENT_DATE_DISCREPANCY` | info | none | The same dates differ by 1–7 days. Recorded, never discarded. |
+| `EXTRACTION_LOW_CONFIDENCE` | attention | `NEEDS_ATTENTION` | A required field is missing or below the confidence threshold, or an optional field has a value but is below it. |
+| `AMBIGUOUS_EMPLOYER_MATCH` | attention | `NEEDS_ATTENTION` | See "Required documents". A later step may let the stronger model propose a match; a proposed match is an input to validation, never a status decision. |
 
-Status: any blocking finding → `BLOCKED`; else any attention finding → `NEEDS_ATTENTION`; else `READY_FOR_REVIEW`. Only `READY_FOR_REVIEW` is eligible for attorney sign-off.
+Status: any blocking finding → `BLOCKED`; else any attention finding → `NEEDS_ATTENTION`; else `READY_FOR_REVIEW`. `INFO` is ignored for status. Only `READY_FOR_REVIEW` is eligible for attorney sign-off.
+
+### Employment-date tolerance (explicit prototype rules)
+Applied to each pair of sources for the same employer (resume job claim, EVL, payroll record), for start dates and, when both sources give one, end dates:
+
+| Difference | Result |
+|---|---|
+| 0 days | no finding |
+| 1–7 days | `EMPLOYMENT_DATE_DISCREPANCY` (INFO), with both source values and their provenance (document, version, field, snippet); status unchanged |
+| more than 7 days | `EMPLOYMENT_DATE_CONFLICT` (BLOCKING), with both source values and their provenance |
+
+A discrepancy is never silently discarded. The 7-day boundary is a prototype heuristic.
+
+### Heuristics are not calibrated guarantees
+The 0.7 confidence threshold, the 7-day boundary, and the name-matching rule (first and last token) are prototype heuristics chosen for the demo. They are named constants, not calibrated against real data, and production would tune them with attorney-labeled cases.
 
 ## 6. Scope: MVP vs deferred vs production
 
 ### Must work for the MVP
-- Three fixtures: **clean** (→ `READY_FOR_REVIEW`), **employment-date conflict** (→ `BLOCKED`; replacing the conflicting document and revalidating → `READY_FOR_REVIEW`), **missing required document** (→ `BLOCKED`, exercises the decision point).
+- Three fixtures: **clean** (→ `READY_FOR_REVIEW`), **employment-date conflict** (→ `BLOCKED`; replacing the conflicting document and revalidating → `READY_FOR_REVIEW`), **missing required document** (→ `BLOCKED`, exercises completeness and the clarification draft).
 - A minimal evaluation assertion over the first two fixtures from Milestone A; the full eval dashboard, metrics, and judge follow in Milestone B.
 - Extraction with the small model (replayable), deterministic validators, status derivation.
 - One Case ID with multiple Run IDs; immutable document versions; full step trace per run.
-- Agent decision point recorded as a tool invocation.
+- Every pipeline event recorded as a `workflow` step, including `check_document_completeness`. No `agent`-kind events are required.
 - UI: case list, case detail (status, findings with evidence, run history, trace view), "request clarification" with a drafted message, "replace document" from a fixture-provided replacement version, "revalidate".
 - Eval harness over all fixtures with the metrics in ACCEPTANCE_CRITERIA, LLM judge for clarification drafts (pass/fail/unsure), and human agree/disagree feedback with a judge-human agreement report.
 

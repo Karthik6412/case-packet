@@ -24,9 +24,12 @@ describe("golden fixtures: shape", () => {
         ...(fixture.replacement ? [fixture.replacement.document] : []),
       ];
       for (const doc of docs) {
-        for (const [field, ex] of Object.entries(doc.extraction)) {
-          if (ex.snippet !== null) {
-            expect(doc.text, `${doc.documentId}.${field}`).toContain(ex.snippet);
+        const bags = [doc.extraction, ...doc.claimedJobs];
+        for (const bag of bags) {
+          for (const [field, ex] of Object.entries(bag)) {
+            if (ex.snippet !== null) {
+              expect(doc.text, `${doc.documentId}.${field}`).toContain(ex.snippet);
+            }
           }
         }
       }
@@ -79,11 +82,13 @@ describe("date-conflict: replace and revalidate", () => {
     expect(findings).toHaveLength(1);
     const [f] = findings;
     expect(f.type).toBe("EMPLOYMENT_DATE_CONFLICT");
-    expect(f.evidence.map((e) => e.documentId).sort()).toEqual(["dc-evl", "dc-payroll"]);
+    expect(f.evidence.map((e) => e.documentId).sort()).toEqual(["dc-evl", "dc-resume"]);
     expect(f.evidence.map((e) => e.snippet).sort()).toEqual([
-      "Hire date: 2021-09-01",
-      "since March 15, 2021",
+      "2021-03-15 to present",
+      "since September 1, 2021",
     ]);
+    expect(f.evidence.find((e) => e.documentId === "dc-resume")!.jobIndex).toBe(0);
+    expect(f.message).toContain("170 days");
   });
 
   it("Run 2 (with the corrected document) is READY_FOR_REVIEW", () => {
