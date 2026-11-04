@@ -90,4 +90,4 @@ Deterministic core first (3–5) means the riskiest correctness logic is tested 
 | Storage lock-in | A6 import-boundary check. |
 
 ## Progress
-Plan approved with corrections. Steps 1–3 done and corrected (required-document set, date tolerance, no LLM-selected actions). Step 4 (repository) is next. The agent runner, UI and LLM integration are not started.
+Plan approved with corrections. Steps 1–3 done and corrected (required-document set, date tolerance, no LLM-selected actions). Step 4 (repository + SQLite adapter) done: schema and migrations in `drizzle/`, adapter in `src/repo/sqlite/`. Step 5 (agent runner) is next. The UI and LLM integration are not started.
