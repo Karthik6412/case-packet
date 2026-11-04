@@ -86,6 +86,7 @@
     "status": "READY_FOR_REVIEW",
     "findings": [],
     "workflowPath": [
+      { "kind": "workflow", "name": "load_documents" },
       { "kind": "workflow", "name": "extract_document" },
       { "kind": "workflow", "name": "extract_document" },
       { "kind": "workflow", "name": "extract_document" },
@@ -93,7 +94,8 @@
       { "kind": "workflow", "name": "extract_document" },
       { "kind": "workflow", "name": "check_document_completeness" },
       { "kind": "workflow", "name": "run_validators" },
-      { "kind": "workflow", "name": "finalize_case" }
+      { "kind": "workflow", "name": "assemble_packet" },
+      { "kind": "workflow", "name": "derive_status" }
     ]
   }
 }

@@ -68,19 +68,7 @@ export function buildRun(o: {
   };
 }
 
-/** Create the case and store every fixture document as version 1. */
-export async function seedFixture(repo: SqliteCaseRepository, fixture: Fixture) {
-  await repo.createCase(fixture.case);
-  for (const d of fixture.documents) {
-    await repo.addDocumentVersion({
-      caseId: fixture.case.caseId,
-      documentId: d.documentId,
-      type: d.type,
-      filename: d.filename,
-      text: d.text,
-    });
-  }
-}
+export { seedFixtureCase as seedFixture } from "@/fixtures/seed";
 
 /**
  * Validate the fixture (optionally with its replacement applied) and record the

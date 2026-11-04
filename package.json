@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "eval": "tsx src/eval/run.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
@@ -27,6 +28,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.12"
   }

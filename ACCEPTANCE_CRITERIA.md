@@ -33,11 +33,12 @@ Each criterion is testable. `[MVP]` must pass for the demo. `[DEFER]` is out of 
 
 ## D. Agent harness and trace
 
-- **D1 [MVP]** The pipeline is a fixed workflow: `extract_document` (per document) → `check_document_completeness` → `run_validators` → `finalize_case`, with `draft_clarification` added after validation when completeness findings exist (Milestone B). There is no approval tool and no LLM-selected tool.
+- **D1 [MVP]** The pipeline is a fixed workflow: `load_documents` → `extract_document` (per document, using the latest version of each) → `check_document_completeness` → `run_validators` → `assemble_packet` → `derive_status`, with `draft_clarification` added after validation when completeness findings exist (Milestone B). There is no approval tool and no LLM-selected tool.
 - **D2 [MVP]** Every executed event is persisted as a step with: `kind` (`workflow` | `agent`), name, input, output, startedAt, durationMs, costUsd (0 for non-LLM steps), and error if any. Steps have an ordered index within the run.
 - **D2a [MVP]** All pipeline steps are `kind: "workflow"`, including LLM-backed ones (extraction, drafting). `kind: "agent"` is reserved for actual model-selected tool calls, of which the MVP has none. The expected path in fixtures records kind alongside name.
 - **D3 [MVP]** Step records are those actually executed. A run's steps are never synthesized after the fact.
-- **D4 [MVP]** The harness enforces a max step count (default 20). Exceeding it ends the run as failed with a recorded reason.
+- **D4 [MVP]** The runner enforces a max step count (default 20) and an overall execution timeout (default 30 s). Exceeding either ends the run as `FAILED` with a recorded reason, keeps the steps already executed, and sets no status, findings or packet. A step that would exceed a limit is not started, so it is never recorded as executed. A step that times out is recorded with its error. (The timeout stops the runner waiting; it cannot cancel work the step already started.)
+- **D4a [MVP]** A failing step is recorded with its error and aborts the run, which is persisted as `FAILED`. A failed run never changes the case's latest status. If persisting the run fails, the error propagates and nothing is stored.
 - **D5 [MVP]** Run→steps serializes to JSON matching the documented trace shape (`run{id, caseId, startedAt, durationMs, totalCostUsd, steps[]}`). A schema test validates this.
 - **D6 [MVP]** The agent cannot set a status. Status is computed by deterministic code from findings. Attempting to record approval anywhere is impossible by interface (no such field or method).
 - **D7 [MVP]** Model use: extraction steps record the small model ID; `draft_clarification` records the stronger model ID.
@@ -52,7 +53,7 @@ Each criterion is testable. `[MVP]` must pass for the demo. `[DEFER]` is out of 
 ## F. Fixtures and expected outcomes
 
 - **F1 [MVP]** Fixture format is JSON validated by Zod: case metadata, documents (type, text), expected status, expected findings (type + evidence fields), expected tool path.
-- **F2 [MVP]** `clean` → `READY_FOR_REVIEW`, zero findings. Resume claims two jobs, each with a matching EVL; passport and sponsor offer letter present. Workflow path: extract×N → check_document_completeness → run_validators → finalize_case.
+- **F2 [MVP]** `clean` → `READY_FOR_REVIEW`, zero findings. Resume claims two jobs, each with a matching EVL; passport and sponsor offer letter present. Workflow path: load_documents → extract_document×5 → check_document_completeness → run_validators → assemble_packet → derive_status.
 - **F3 [MVP]** `date-conflict` → `BLOCKED`, exactly one `EMPLOYMENT_DATE_CONFLICT` between the resume claim and the EVL, with evidence from both documents, same workflow path. The fixture includes a corrected replacement resume (version 2); after replacement and revalidation the new run is `READY_FOR_REVIEW` with zero findings.
 - **F4 [MVP-B]** `missing-doc` → `BLOCKED`, one `MISSING_REQUIRED_DOCUMENT` (an EVL for a claimed job), path includes `check_document_completeness` and `draft_clarification`.
 - **F5 [MVP]** All fixture data is synthetic and contains no real personal data.

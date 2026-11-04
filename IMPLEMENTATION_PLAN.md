@@ -50,7 +50,7 @@ Define `CaseRepository`: create/get cases; add document version (including a cor
 *Done when:* A1–A4, A6 tests pass against a temporary SQLite file database.
 
 **5. Agent runner (no LLM yet)**
-Implement `runCase`: the step-recording runner (timing, cost, errors, step cap) with the fixed workflow tools `extract_document` (initially reading pre-baked extraction from the fixture), `check_document_completeness`, `run_validators`, `finalize_case`, recorded as `kind: "workflow"`. This is the only runner; the app and the eval both call it (D8).
+Implement `runCase` (`src/agent/runCase.ts`): the step-recording runner (timing, cost, errors, step cap, execution timeout) with the fixed workflow `load_documents` → `extract_document` ×N (a `DocumentExtractor` interface; the fixture-backed implementation reads pre-baked facts) → `check_document_completeness` → `run_validators` → `assemble_packet` → `derive_status`, recorded as `kind: "workflow"`. Extraction precedes the completeness check because claimed jobs come from the resume. The completed (or FAILED) run is persisted with one atomic `recordRun`. This is the only runner; the app and the eval both call it (D8).
 Add the **minimal eval assertion** (K1): a test runs the `clean` and `date-conflict` fixtures through `runCase` and asserts status, findings, and workflow tool path.
 *Done when:* K1 passes via `runCase` and D1–D5, D8, F2, F3 pass.
 
@@ -90,4 +90,4 @@ Deterministic core first (3–5) means the riskiest correctness logic is tested 
 | Storage lock-in | A6 import-boundary check. |
 
 ## Progress
-Plan approved with corrections. Steps 1–3 done and corrected (required-document set, date tolerance, no LLM-selected actions). Step 4 (repository + SQLite adapter) done: schema and migrations in `drizzle/`, adapter in `src/repo/sqlite/`. Step 5 (agent runner) is next. The UI and LLM integration are not started.
+Plan approved with corrections. Steps 1–3 done and corrected (required-document set, date tolerance, no LLM-selected actions). Step 4 (repository + SQLite adapter) done: schema and migrations in `drizzle/`, adapter in `src/repo/sqlite/`. Step 5 (agent runner) done: `runCase` in `src/agent/`, minimal golden assertion in `src/eval/` (`npm run eval`). Step 6 (UI) is next. LLM integration is not started.
