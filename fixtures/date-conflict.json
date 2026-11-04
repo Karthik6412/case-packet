@@ -1,0 +1,81 @@
+{
+  "id": "date-conflict",
+  "description": "The employer letter says employment began 2021-03-15 but payroll shows a 2021-09-01 hire date (170-day conflict). The corrected letter v2 resolves it.",
+  "case": {
+    "caseId": "case-dateconflict-001",
+    "clientName": "Lena Höffmann",
+    "visaCategory": "EB-2"
+  },
+  "documents": [
+    {
+      "documentId": "dc-passport",
+      "type": "PASSPORT",
+      "version": 1,
+      "filename": "passport.txt",
+      "text": "PASSPORT (SYNTHETIC SAMPLE)\nName: HOFFMANN, LENA SOPHIE\nDate of birth: 03 NOV 1988\nPassport No: QT8820145\n",
+      "extraction": {
+        "fullName": { "value": "HOFFMANN, LENA SOPHIE", "confidence": 0.98, "snippet": "Name: HOFFMANN, LENA SOPHIE" },
+        "dateOfBirth": { "value": "1988-11-03", "confidence": 0.97, "snippet": "03 NOV 1988" },
+        "passportNumber": { "value": "QT8820145", "confidence": 0.99, "snippet": "Passport No: QT8820145" }
+      }
+    },
+    {
+      "documentId": "dc-evl",
+      "type": "EMPLOYMENT_VERIFICATION_LETTER",
+      "version": 1,
+      "filename": "employment_letter.txt",
+      "text": "Brightwater Logistics LLC\nEmployment Verification Letter (synthetic)\n\nTo whom it may concern:\nThis letter confirms that Lena Höffmann has been employed by Brightwater Logistics LLC as Supply Chain Analyst since March 15, 2021.\n",
+      "extraction": {
+        "fullName": { "value": "Lena Höffmann", "confidence": 0.95, "snippet": "Lena Höffmann" },
+        "employerName": { "value": "Brightwater Logistics LLC", "confidence": 0.96, "snippet": "employed by Brightwater Logistics LLC" },
+        "employmentStartDate": { "value": "2021-03-15", "confidence": 0.94, "snippet": "since March 15, 2021" },
+        "jobTitle": { "value": "Supply Chain Analyst", "confidence": 0.92, "snippet": "as Supply Chain Analyst" }
+      }
+    },
+    {
+      "documentId": "dc-payroll",
+      "type": "PAYROLL_RECORD",
+      "version": 1,
+      "filename": "payroll_record.txt",
+      "text": "PAYROLL EMPLOYEE RECORD (synthetic)\nEmployer: Brightwater Logistics\nEmployee: Lena S. Hoffmann\nDOB: 1988-11-03\nHire date: 2021-09-01\n",
+      "extraction": {
+        "fullName": { "value": "Lena S. Hoffmann", "confidence": 0.96, "snippet": "Employee: Lena S. Hoffmann" },
+        "dateOfBirth": { "value": "1988-11-03", "confidence": 0.96, "snippet": "DOB: 1988-11-03" },
+        "employerName": { "value": "Brightwater Logistics", "confidence": 0.97, "snippet": "Employer: Brightwater Logistics" },
+        "employmentStartDate": { "value": "2021-09-01", "confidence": 0.98, "snippet": "Hire date: 2021-09-01" }
+      }
+    }
+  ],
+  "expected": {
+    "status": "BLOCKED",
+    "findings": [
+      { "type": "EMPLOYMENT_DATE_CONFLICT", "documentIds": ["dc-evl", "dc-payroll"] }
+    ],
+    "workflowPath": [
+      { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "run_validators" },
+      { "kind": "workflow", "name": "finalize_case" }
+    ]
+  },
+  "replacement": {
+    "document": {
+      "documentId": "dc-evl",
+      "type": "EMPLOYMENT_VERIFICATION_LETTER",
+      "version": 2,
+      "filename": "employment_letter_corrected.txt",
+      "text": "Brightwater Logistics LLC\nEmployment Verification Letter (synthetic, corrected)\n\nTo whom it may concern:\nThis corrected letter confirms that Lena Höffmann has been employed by Brightwater Logistics LLC as Supply Chain Analyst since September 1, 2021. It supersedes our earlier letter, which stated an incorrect start date.\n",
+      "extraction": {
+        "fullName": { "value": "Lena Höffmann", "confidence": 0.95, "snippet": "Lena Höffmann" },
+        "employerName": { "value": "Brightwater Logistics LLC", "confidence": 0.96, "snippet": "employed by Brightwater Logistics LLC" },
+        "employmentStartDate": { "value": "2021-09-01", "confidence": 0.95, "snippet": "since September 1, 2021" },
+        "jobTitle": { "value": "Supply Chain Analyst", "confidence": 0.92, "snippet": "as Supply Chain Analyst" }
+      }
+    },
+    "expected": {
+      "status": "READY_FOR_REVIEW",
+      "findings": []
+    }
+  }
+}

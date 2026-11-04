@@ -1,0 +1,60 @@
+{
+  "id": "clean",
+  "description": "Consistent packet: identity, employer and start date agree across all three documents.",
+  "case": {
+    "caseId": "case-clean-001",
+    "clientName": "Amara Okafor",
+    "visaCategory": "EB-2"
+  },
+  "documents": [
+    {
+      "documentId": "clean-passport",
+      "type": "PASSPORT",
+      "version": 1,
+      "filename": "passport.txt",
+      "text": "PASSPORT (SYNTHETIC SAMPLE)\nName: OKAFOR, AMARA CHIDI\nDate of birth: 12 APR 1990\nPassport No: XK4471902\n",
+      "extraction": {
+        "fullName": { "value": "OKAFOR, AMARA CHIDI", "confidence": 0.98, "snippet": "Name: OKAFOR, AMARA CHIDI" },
+        "dateOfBirth": { "value": "1990-04-12", "confidence": 0.97, "snippet": "12 APR 1990" },
+        "passportNumber": { "value": "XK4471902", "confidence": 0.99, "snippet": "Passport No: XK4471902" }
+      }
+    },
+    {
+      "documentId": "clean-evl",
+      "type": "EMPLOYMENT_VERIFICATION_LETTER",
+      "version": 1,
+      "filename": "employment_letter.txt",
+      "text": "Northwind Analytics, Inc.\nEmployment Verification Letter (synthetic)\n\nTo whom it may concern:\nThis letter confirms that Amara C. Okafor has been employed by Northwind Analytics, Inc. as Senior Data Engineer since September 1, 2021.\n",
+      "extraction": {
+        "fullName": { "value": "Amara C. Okafor", "confidence": 0.95, "snippet": "Amara C. Okafor" },
+        "employerName": { "value": "Northwind Analytics, Inc.", "confidence": 0.96, "snippet": "employed by Northwind Analytics, Inc." },
+        "employmentStartDate": { "value": "2021-09-01", "confidence": 0.94, "snippet": "since September 1, 2021" },
+        "jobTitle": { "value": "Senior Data Engineer", "confidence": 0.93, "snippet": "as Senior Data Engineer" }
+      }
+    },
+    {
+      "documentId": "clean-payroll",
+      "type": "PAYROLL_RECORD",
+      "version": 1,
+      "filename": "payroll_record.txt",
+      "text": "PAYROLL EMPLOYEE RECORD (synthetic)\nEmployer: Northwind Analytics Inc\nEmployee: Amara Okafor\nDOB: 1990-04-12\nHire date: 2021-09-01\n",
+      "extraction": {
+        "fullName": { "value": "Amara Okafor", "confidence": 0.97, "snippet": "Employee: Amara Okafor" },
+        "dateOfBirth": { "value": "1990-04-12", "confidence": 0.96, "snippet": "DOB: 1990-04-12" },
+        "employerName": { "value": "Northwind Analytics Inc", "confidence": 0.97, "snippet": "Employer: Northwind Analytics Inc" },
+        "employmentStartDate": { "value": "2021-09-01", "confidence": 0.98, "snippet": "Hire date: 2021-09-01" }
+      }
+    }
+  ],
+  "expected": {
+    "status": "READY_FOR_REVIEW",
+    "findings": [],
+    "workflowPath": [
+      { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "extract_document" },
+      { "kind": "workflow", "name": "run_validators" },
+      { "kind": "workflow", "name": "finalize_case" }
+    ]
+  }
+}
